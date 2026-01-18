@@ -1,0 +1,4 @@
+# Weekly Deployment Update - Python Dependencies
+
+# PowerPoint generation (opens in Google Slides)
+python-pptx>=0.6.21

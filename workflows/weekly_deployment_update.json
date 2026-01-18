@@ -1,0 +1,327 @@
+{
+  "name": "Weekly Deployment Update",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "1ca78d67-36ab-4c07-bf9b-d50258d54cc8",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -240,
+        192
+      ],
+      "notes": "Runs every Monday at 9am. Manual execution also supported for testing."
+    },
+    {
+      "parameters": {
+        "fileSelector": "/Users/matt/.n8n-files/mock_jira_tickets.json",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        -16,
+        192
+      ],
+      "id": "41c90b5f-5147-4a89-8034-c6899c9c0e82",
+      "name": "Read/Write Files from Disk",
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "fromJson",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        208,
+        192
+      ],
+      "id": "d558b992-c262-423f-814b-c00362c840a0",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputItems = $input.all();\nlet tickets = [];\n\nif (inputItems.length === 1 && Array.isArray(inputItems[0].json?.data)) {\n  tickets = inputItems[0].json.data;\n} else if (inputItems.length === 1 && Array.isArray(inputItems[0].json)) {\n  tickets = inputItems[0].json;\n} else {\n  tickets = inputItems.map((item) => item.json);\n}\n\nconst now = new Date();\nconst today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));\nconst currentWeekday = (today.getUTCDay() + 6) % 7; // Monday=0\n\nlet lastWeekEnd;\nlet lastWeekStart;\nif (currentWeekday === 0) {\n  lastWeekEnd = new Date(today);\n  lastWeekEnd.setUTCDate(today.getUTCDate() - 1);\n  lastWeekStart = new Date(lastWeekEnd);\n  lastWeekStart.setUTCDate(lastWeekEnd.getUTCDate() - 6);\n} else {\n  lastWeekEnd = new Date(today);\n  lastWeekEnd.setUTCDate(today.getUTCDate() - currentWeekday);\n  lastWeekStart = new Date(lastWeekEnd);\n  lastWeekStart.setUTCDate(lastWeekEnd.getUTCDate() - 6);\n}\n\nconst next14Start = new Date(today);\nconst next14End = new Date(today);\nnext14End.setUTCDate(today.getUTCDate() + 14);\n\nconst formatDate = (d) => d.toISOString().slice(0, 10);\n\nreturn [\n  {\n    json: {\n      tickets,\n      date_windows: {\n        last_week_start: formatDate(lastWeekStart),\n        last_week_end: formatDate(lastWeekEnd),\n        next_14_start: formatDate(next14Start),\n        next_14_end: formatDate(next14End),\n        current_date: formatDate(today),\n        timezone: 'UTC',\n      },\n      generated_at: now.toISOString(),\n    },\n  },\n];\n"
+      },
+      "id": "cfb4db3e-1677-4fc7-a76d-7a75f4f50f34",
+      "name": "Calculate Date Windows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        192
+      ],
+      "notes": "Calculates UTC windows:\n- Last Week: Previous Mon 00:00 to Sun 23:59:59\n- Next 14 Days: Today 00:00 to +14 days 23:59:59\n\nMonday logic: If today is Monday, use the week that just ended."
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst tickets = input.tickets || [];\nconst windows = input.date_windows || {};\n\nconst parseDate = (dateStr) => {\n  if (!dateStr) return null;\n  const d = new Date(`${dateStr}T00:00:00Z`);\n  return Number.isNaN(d.getTime()) ? null : d;\n};\n\nconst lastWeekStart = parseDate(windows.last_week_start);\nconst lastWeekEnd = parseDate(windows.last_week_end);\nconst next14Start = parseDate(windows.next_14_start);\nconst next14End = parseDate(windows.next_14_end);\n\nconst buckets = {\n  fe_deployed: [],\n  be_deployed: [],\n  fe_upcoming: [],\n  be_upcoming: [],\n  focus_items: {},\n  risks_blocks: [],\n  uncategorized: [],\n};\n\nconst classifyTicket = (ticket) => {\n  const component = ticket.component;\n  const key = ticket.key || '';\n\n  if (component === 'Frontend') return 'FE';\n  if (component === 'Backend') return 'BE';\n\n  if (key.startsWith('FE-')) return 'FE';\n  if (key.startsWith('BE-')) return 'BE';\n\n  return 'Uncategorized';\n};\n\nconst isInLastWeek = (ticket) => {\n  const deployDate = parseDate(ticket.deployed_date) || parseDate(ticket.updated);\n  if (!deployDate || !lastWeekStart || !lastWeekEnd) return false;\n  return deployDate >= lastWeekStart && deployDate <= lastWeekEnd;\n};\n\nconst isInNext14Days = (ticket) => {\n  const targetDate = parseDate(ticket.target_deploy_date);\n  const status = ticket.status || '';\n\n  if (targetDate && next14Start && next14End) {\n    if (targetDate >= next14Start && targetDate <= next14End) return true;\n  }\n\n  if ((status === 'Ready for Deploy' || status === 'In QA') && ticket.fix_version) {\n    return true;\n  }\n\n  return false;\n};\n\nconst isBlocked = (ticket) => ticket.status === 'Blocked' || ticket.blocked_reason;\n\nconst processed = new Set();\n\nfor (const ticket of tickets) {\n  const key = ticket.key;\n  const status = ticket.status || '';\n  const classification = classifyTicket(ticket);\n\n  if (isBlocked(ticket)) {\n    buckets.risks_blocks.push(ticket);\n    processed.add(key);\n    continue;\n  }\n\n  if (status === 'Done' && isInLastWeek(ticket)) {\n    if (classification === 'FE') buckets.fe_deployed.push(ticket);\n    else if (classification === 'BE') buckets.be_deployed.push(ticket);\n    else buckets.uncategorized.push(ticket);\n    processed.add(key);\n    continue;\n  }\n\n  if ((status === 'Ready for Deploy' || status === 'In QA') && isInNext14Days(ticket)) {\n    if (classification === 'FE') buckets.fe_upcoming.push(ticket);\n    else if (classification === 'BE') buckets.be_upcoming.push(ticket);\n    else buckets.uncategorized.push(ticket);\n    processed.add(key);\n    continue;\n  }\n\n  if (status === 'In Progress' || status === 'To Do') {\n    const epic = ticket.epic || 'Other Focus Items';\n    if (!buckets.focus_items[epic]) buckets.focus_items[epic] = [];\n    buckets.focus_items[epic].push(ticket);\n    processed.add(key);\n    continue;\n  }\n\n  if (!processed.has(key)) buckets.uncategorized.push(ticket);\n}\n\nconst focusItemsList = Object.entries(buckets.focus_items).map(([epic, items]) => ({\n  epic,\n  tickets: items,\n}));\n\nreturn [\n  {\n    json: {\n      buckets: {\n        fe_deployed: buckets.fe_deployed,\n        be_deployed: buckets.be_deployed,\n        fe_upcoming: buckets.fe_upcoming,\n        be_upcoming: buckets.be_upcoming,\n        focus_items: focusItemsList,\n        risks_blocks: buckets.risks_blocks,\n        uncategorized: buckets.uncategorized,\n      },\n      date_windows: windows,\n      summary: {\n        total_tickets: tickets.length,\n        fe_deployed_count: buckets.fe_deployed.length,\n        be_deployed_count: buckets.be_deployed.length,\n        fe_upcoming_count: buckets.fe_upcoming.length,\n        be_upcoming_count: buckets.be_upcoming.length,\n        focus_items_count: Object.values(buckets.focus_items).reduce((sum, items) => sum + items.length, 0),\n        risks_blocks_count: buckets.risks_blocks.length,\n        uncategorized_count: buckets.uncategorized.length,\n      },\n    },\n  },\n];\n"
+      },
+      "id": "6039a4c5-c5e7-425e-8e50-015e95321bb9",
+      "name": "Filter & Categorize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        192
+      ],
+      "notes": "Categorizes tickets into 7 buckets:\n1. FE Deployed Last Week\n2. BE Deployed Last Week\n3. FE Expected Next 14 Days\n4. BE Expected Next 14 Days\n5. Team Focus Items (by epic)\n6. Risks/Blocks\n7. Uncategorized\n\nClassification: component field > key prefix > Uncategorized"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst now = new Date();\n\nconst getISOWeek = (date) => {\n  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));\n  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));\n  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));\n  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);\n  return { year: d.getUTCFullYear(), week: weekNo };\n};\n\nconst pad = (n) => String(n).padStart(2, '0');\nconst iso = getISOWeek(now);\nconst week_identifier = `${iso.year}-W${pad(iso.week)}`;\n\nconst generated_timestamp = `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())} ${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())} UTC`;\nconst generated_timestamp_id = `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}T${pad(now.getUTCHours())}-${pad(now.getUTCMinutes())}-${pad(now.getUTCSeconds())}Z`;\n\nreturn [\n  {\n    json: {\n      buckets: input.buckets || {},\n      date_windows: input.date_windows || {},\n      summary: input.summary || {},\n      week_identifier,\n      generated_timestamp,\n      generated_timestamp_id,\n    },\n  },\n];\n"
+      },
+      "id": "f51af5c6-d360-49a7-8e65-c56e5c5fd9f3",
+      "name": "Generate Week ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        192
+      ],
+      "notes": "Generates ISO week identifier (e.g., 2026-W03) for file naming and report headers."
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst buckets = input.buckets || {};\nconst windows = input.date_windows || {};\nconst weekId = input.week_identifier || '';\nconst timestamp = input.generated_timestamp || '';\nconst timestampId = input.generated_timestamp_id || '';\nconst NL = '\\n';\n\nconst formatTicket = (ticket, includeDate = false) => {\n  const key = ticket.key || '';\n  const summary = ticket.summary || '';\n  const url = `https://jira.example.com/browse/${key}`;\n  let line = `- [${key}](${url}): ${summary}`;\n\n  if (includeDate) {\n    const date = ticket.target_deploy_date || ticket.deployed_date;\n    if (date) line += ` *(Target: ${date})*`;\n    else if (ticket.status === 'Ready for Deploy') line += ' *(Target: TBD)*';\n  }\n\n  return line;\n};\n\nconst formatBucket = (tickets, title, includeDate = false) => {\n  if (!tickets || tickets.length === 0) {\n    return `### ${title}${NL}${NL}[None]${NL}`;\n  }\n  const lines = [`### ${title}${NL}`];\n  for (const ticket of tickets) {\n    lines.push(formatTicket(ticket, includeDate));\n  }\n  return `${lines.join(NL)}${NL}`;\n};\n\nconst mdLines = [\n  `# Weekly Deployment Update - ${weekId}`,\n  '',\n  `**Report Period**: ${windows.last_week_start || ''} to ${windows.last_week_end || ''}`,\n  `**Generated**: ${timestamp}`,\n  '',\n  '---',\n  '',\n  '## Deployed Last Week',\n  '',\n];\n\nmdLines.push(formatBucket(buckets.fe_deployed || [], 'Frontend'));\nmdLines.push('');\nmdLines.push(formatBucket(buckets.be_deployed || [], 'Backend'));\nmdLines.push('');\n\nmdLines.push('---');\nmdLines.push('');\nmdLines.push('## Expected Next 14 Days');\nmdLines.push(`**Window**: ${windows.next_14_start || ''} to ${windows.next_14_end || ''}`);\nmdLines.push('');\n\nmdLines.push(formatBucket(buckets.fe_upcoming || [], 'Frontend', true));\nmdLines.push('');\nmdLines.push(formatBucket(buckets.be_upcoming || [], 'Backend', true));\nmdLines.push('');\n\nmdLines.push('---');\nmdLines.push('');\nmdLines.push('## Team Focus Items');\nmdLines.push('');\n\nconst focusItems = buckets.focus_items || [];\nif (!focusItems.length) {\n  mdLines.push(`[None]${NL}`);\n} else {\n  for (const group of focusItems) {\n    const epic = group.epic || 'Other';\n    const tickets = group.tickets || [];\n    mdLines.push(`### ${epic}${NL}`);\n    for (const ticket of tickets) {\n      mdLines.push(formatTicket(ticket));\n    }\n    mdLines.push('');\n  }\n}\n\nmdLines.push('---');\nmdLines.push('');\nmdLines.push('## Risks & Blockers');\nmdLines.push('');\n\nconst risks = buckets.risks_blocks || [];\nif (!risks.length) {\n  mdLines.push(`No known risks/blocks this week.${NL}`);\n} else {\n  for (const ticket of risks) {\n    const key = ticket.key || '';\n    const summary = ticket.summary || '';\n    const reason = ticket.blocked_reason || 'No details provided';\n    const url = `https://jira.example.com/browse/${key}`;\n    mdLines.push(`- **[${key}](${url})**: ${summary}`);\n    mdLines.push(`  - *Reason*: ${reason}`);\n  }\n  mdLines.push('');\n}\n\nconst uncategorized = buckets.uncategorized || [];\nif (uncategorized.length) {\n  mdLines.push('---');\n  mdLines.push('');\n  mdLines.push('## Other Items');\n  mdLines.push('');\n  for (const ticket of uncategorized) {\n    mdLines.push(formatTicket(ticket));\n  }\n  mdLines.push('');\n}\n\nconst confluenceContent = mdLines.join(NL);\n\nreturn [\n  {\n    json: {\n      buckets,\n      date_windows: windows,\n      summary: input.summary || {},\n      week_identifier: weekId,\n      generated_timestamp: timestamp,\n      generated_timestamp_id: timestampId,\n      confluence_content: confluenceContent,\n    },\n  },\n];\n"
+      },
+      "id": "e2a79d7d-69d6-49b7-980a-eca90b87d4d6",
+      "name": "Format Confluence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        192
+      ],
+      "notes": "Generates Markdown for Confluence:\n- Deployed Last Week (FE/BE)\n- Expected Next 14 Days (FE/BE)\n- Team Focus Items (by epic)\n- Risks & Blockers\n- Other Items (if any)\n\nHandles [None] for empty categories."
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst buckets = input.buckets || {};\nconst windows = input.date_windows || {};\nconst weekId = input.week_identifier || '';\nconst timestamp = input.generated_timestamp || '';\nconst NL = '\\n';\n\nconst formatTicketSimple = (ticket) => {\n  const key = ticket.key || '';\n  const summary = ticket.summary || '';\n  return `* ${key}: ${summary}`;\n};\n\nconst formatTicketWithDate = (ticket) => {\n  const key = ticket.key || '';\n  const summary = ticket.summary || '';\n  const date = ticket.target_deploy_date;\n  if (date) return `* ${key}: ${summary} [${date}]`;\n  if (ticket.status === 'Ready for Deploy') return `* ${key}: ${summary} [TBD]`;\n  return `* ${key}: ${summary}`;\n};\n\nconst slideLines = [\n  `WEEKLY DEPLOYMENT UPDATE - ${weekId}`,\n  '='.repeat(50),\n  '',\n  '='.repeat(50),\n  '                    SLIDE 1: OVERVIEW',\n  '='.repeat(50),\n  '',\n  '+-----------------------------+-----------------------------+',\n  '|     DEPLOYED LAST WEEK      |    EXPECTED NEXT 14 DAYS    |',\n  '+-----------------------------+-----------------------------+',\n  '',\n];\n\nslideLines.push('LEFT COLUMN (Deployed):');\nslideLines.push('-'.repeat(30));\nconst feDeployed = buckets.fe_deployed || [];\nconst beDeployed = buckets.be_deployed || [];\n\nif (feDeployed.length) {\n  slideLines.push('FRONTEND:');\n  for (const t of feDeployed.slice(0, 5)) slideLines.push(formatTicketSimple(t));\n  slideLines.push('');\n}\nif (beDeployed.length) {\n  slideLines.push('BACKEND:');\n  for (const t of beDeployed.slice(0, 5)) slideLines.push(formatTicketSimple(t));\n}\nif (!feDeployed.length && !beDeployed.length) slideLines.push('[None]');\n\nslideLines.push('');\nslideLines.push('RIGHT COLUMN (Upcoming):');\nslideLines.push('-'.repeat(30));\n\nconst feUpcoming = buckets.fe_upcoming || [];\nconst beUpcoming = buckets.be_upcoming || [];\n\nif (feUpcoming.length) {\n  slideLines.push('FRONTEND:');\n  for (const t of feUpcoming.slice(0, 5)) slideLines.push(formatTicketWithDate(t));\n  slideLines.push('');\n}\nif (beUpcoming.length) {\n  slideLines.push('BACKEND:');\n  for (const t of beUpcoming.slice(0, 5)) slideLines.push(formatTicketWithDate(t));\n}\nif (!feUpcoming.length && !beUpcoming.length) slideLines.push('[None]');\n\nslideLines.push('');\nslideLines.push('='.repeat(50));\nslideLines.push('            SLIDE 2: FOCUS & RISKS');\nslideLines.push('='.repeat(50));\nslideLines.push('');\nslideLines.push('TEAM FOCUS ITEMS:');\nslideLines.push('-'.repeat(30));\n\nconst focusItems = buckets.focus_items || [];\nif (!focusItems.length) {\n  slideLines.push('[None]');\n} else {\n  for (const group of focusItems) {\n    const epic = group.epic || 'Other';\n    slideLines.push(`${NL}> ${epic}:`);\n    for (const ticket of (group.tickets || []).slice(0, 3)) {\n      slideLines.push(formatTicketSimple(ticket));\n    }\n  }\n}\n\nslideLines.push('');\nslideLines.push('RISKS & BLOCKERS:');\nslideLines.push('-'.repeat(30));\n\nconst risks = buckets.risks_blocks || [];\nif (!risks.length) {\n  slideLines.push('No known risks/blocks this week.');\n} else {\n  for (const ticket of risks) {\n    const key = ticket.key || '';\n    const summary = ticket.summary || '';\n    const reason = ticket.blocked_reason || 'No details';\n    slideLines.push(`! ${key}: ${summary}`);\n    slideLines.push(`  -> ${reason}`);\n  }\n}\n\nslideLines.push('');\nslideLines.push('='.repeat(50));\nslideLines.push(`Generated: ${timestamp}`);\nslideLines.push('='.repeat(50));\n\nconst slideContent = slideLines.join(NL);\n\nreturn [\n  {\n    json: {\n      buckets,\n      date_windows: windows,\n      summary: input.summary || {},\n      week_identifier: weekId,\n      generated_timestamp: timestamp,\n      confluence_content: input.confluence_content || '',\n      slide_content: slideContent,\n    },\n  },\n];\n"
+      },
+      "id": "03612ec0-348c-45d8-b1f6-263b85515f28",
+      "name": "Format Slide",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        192
+      ],
+      "notes": "Generates two-column text layout for Google Slides:\n- Left: Deployed items\n- Right: Upcoming items\n- Bottom: Focus items and risks\n\nLimits items per section for readability."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "first-monday-check",
+              "leftValue": "={{ $now.toFormat('d') <= 7 && $now.weekday === 1 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "aa6f73bb-0581-42ce-951e-4149139e3634",
+      "name": "Is First Monday?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1552,
+        192
+      ],
+      "notes": "Checks if today is the first Monday of the month.\nUsed for monthly rollover logic (future enhancement).\nCurrently both branches continue to file output."
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "=",
+        "binaryPropertyName": "{{ $json.confluence_content }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1776,
+        96
+      ],
+      "id": "6311bd0c-a5f4-4cb6-b602-c5f8c7c2cb14",
+      "name": "Write to Confluence"
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "=",
+        "binaryPropertyName": "={{ $json.confluence_content }}",
+        "options": {
+          "fileName": "=/tmp/slide_{{ $json.week_identifier }}_{{ $json.generated_timestamp }}.txt"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1776,
+        288
+      ],
+      "id": "49bd35b4-7131-420d-ac86-df90a72c5860",
+      "name": "Write to Slide"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Calculate Date Windows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Date Windows": {
+      "main": [
+        [
+          {
+            "node": "Filter & Categorize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter & Categorize": {
+      "main": [
+        [
+          {
+            "node": "Generate Week ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Week ID": {
+      "main": [
+        [
+          {
+            "node": "Format Confluence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Confluence": {
+      "main": [
+        [
+          {
+            "node": "Format Slide",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Slide": {
+      "main": [
+        [
+          {
+            "node": "Is First Monday?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is First Monday?": {
+      "main": [
+        [
+          {
+            "node": "Write to Confluence",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Write to Slide",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Write to Confluence",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Write to Slide",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "0176824a-dff6-4c25-8cbf-2aeda172991d",
+  "meta": {
+    "instanceId": "9eff279eec139ff89f93a31975497043c66ae4c2145ee868d8adc56b024aa1a0"
+  },
+  "id": "1875e90e41f44afeb3b65",
+  "tags": []
+}
