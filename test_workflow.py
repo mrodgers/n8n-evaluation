@@ -4,6 +4,7 @@ Standalone test script for Weekly Deployment Update workflow.
 Simulates all n8n nodes and generates outputs for verification.
 """
 
+import csv
 import json
 from datetime import datetime, timedelta, timezone
 import os
@@ -1364,6 +1365,7 @@ return [
 ];
 '''
 
+
     # Node IDs
     id_schedule = new_id()
     id_read_file = new_id()
@@ -1374,8 +1376,11 @@ return [
     id_confluence = new_id()
     id_slide = new_id()
     id_if_monday = new_id()
+    id_convert_confluence = new_id()
+    id_convert_slide = new_id()
     id_write_confluence = new_id()
     id_write_slide = new_id()
+    id_create_slides = new_id()
 
     # Build nodes array
     nodes = [
@@ -1510,31 +1515,69 @@ return [
         },
         {
             "parameters": {
-                "operation": "toText",
-                "sourceProperty": "=",
-                "binaryPropertyName": "{{ $json.confluence_content }}",
-                "options": {}
+                "operation": "text",
+                "sourceProperty": "confluence_content",
+                "options": {
+                    "fileName": "=week-{{ $json.week_identifier.split('-W')[1] }}.md"
+                }
             },
+            "id": id_convert_confluence,
+            "name": "Convert Confluence to File",
             "type": "n8n-nodes-base.convertToFile",
             "typeVersion": 1.1,
-            "position": [1776, 96],
-            "id": id_write_confluence,
-            "name": "Write to Confluence"
+            "position": [1776, 96]
         },
         {
             "parameters": {
-                "operation": "toText",
-                "sourceProperty": "=",
-                "binaryPropertyName": "={{ $json.confluence_content }}",
+                "operation": "text",
+                "sourceProperty": "slide_content",
                 "options": {
-                    "fileName": "=/tmp/slide_{{ $json.week_identifier }}_{{ $json.generated_timestamp }}.txt"
+                    "fileName": "={{ $json.week_identifier }}.txt"
                 }
             },
+            "id": id_convert_slide,
+            "name": "Convert Slide to File",
             "type": "n8n-nodes-base.convertToFile",
             "typeVersion": 1.1,
-            "position": [1776, 288],
+            "position": [1776, 288]
+        },
+        {
+            "parameters": {
+                "operation": "write",
+                "fileName": "=/Users/matt/Git/n8n-evaluation/outputs/confluence/{{ $now.format('yyyy-MMMM') }}/week-{{ $json.week_identifier.split('-W')[1] }}.md",
+                "options": {}
+            },
+            "id": id_write_confluence,
+            "name": "Write Confluence File",
+            "type": "n8n-nodes-base.readWriteFile",
+            "typeVersion": 1.1,
+            "position": [2000, 96]
+        },
+        {
+            "parameters": {
+                "operation": "write",
+                "fileName": "=/Users/matt/Git/n8n-evaluation/outputs/slides/{{ $json.week_identifier }}.txt",
+                "options": {}
+            },
             "id": id_write_slide,
-            "name": "Write to Slide"
+            "name": "Write Slide File",
+            "type": "n8n-nodes-base.readWriteFile",
+            "typeVersion": 1.1,
+            "position": [2000, 288]
+        },
+        {
+            "parameters": {
+                "title": "Weekly Deployment Update"
+            },
+            "type": "n8n-nodes-base.googleSlides",
+            "typeVersion": 2,
+            "position": [2240, 288],
+            "id": id_create_slides,
+            "name": "Create Slides Presentation",
+            "executeOnce": True,
+            "alwaysOutputData": True,
+            "disabled": True,
+            "notes": "Optional: enable after adding Google Slides credentials."
         }
     ]
 
@@ -1567,20 +1610,29 @@ return [
         "Is First Monday?": {
             "main": [
                 [
-                    {"node": "Write to Confluence", "type": "main", "index": 0},
-                    {"node": "Write to Slide", "type": "main", "index": 0}
+                    {"node": "Convert Confluence to File", "type": "main", "index": 0},
+                    {"node": "Convert Slide to File", "type": "main", "index": 0}
                 ],
                 [
-                    {"node": "Write to Confluence", "type": "main", "index": 0},
-                    {"node": "Write to Slide", "type": "main", "index": 0}
+                    {"node": "Convert Confluence to File", "type": "main", "index": 0},
+                    {"node": "Convert Slide to File", "type": "main", "index": 0}
                 ]
             ]
+        },
+        "Convert Confluence to File": {
+            "main": [[{"node": "Write Confluence File", "type": "main", "index": 0}]]
+        },
+        "Convert Slide to File": {
+            "main": [[{"node": "Write Slide File", "type": "main", "index": 0}]]
+        },
+        "Write Slide File": {
+            "main": [[{"node": "Create Slides Presentation", "type": "main", "index": 0}]]
         }
     }
 
     # Build complete workflow
     workflow = {
-        "name": "Weekly Deployment Update",
+        "name": "Weekly Deployment Update v2.3",
         "nodes": nodes,
         "pinData": {},
         "connections": connections,
@@ -1635,6 +1687,7 @@ def main():
     week_id = generate_week_id()
     generated_timestamp = today.strftime('%Y-%m-%d %H:%M:%S UTC')
     timestamp_id = today.strftime('%Y-%m-%dT%H-%M-%SZ')
+    is_first_monday = today.day <= 7 and today.weekday() == 0
     print(f"Step 4: Week identifier: {week_id}")
 
     # Generate outputs
@@ -1644,25 +1697,87 @@ def main():
 
     # Write outputs
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    outputs_dir = "/tmp"
+    outputs_dir = os.path.join(script_dir, "outputs")
     mockdata_dir = os.path.join(script_dir, "mockdata")
 
-    os.makedirs(outputs_dir, exist_ok=True)
+    # Confluence: outputs/confluence/{YYYY-Month}/week-{WW}.md
+    month_name = today.strftime('%Y-%B')  # e.g., "2026-January"
+    week_num = week_id.split('-W')[1]     # e.g., "03" from "2026-W03"
+    confluence_dir = os.path.join(outputs_dir, "confluence", month_name)
+    os.makedirs(confluence_dir, exist_ok=True)
+
+    # Slides: outputs/slides/{week_id}.txt
+    slides_dir = os.path.join(outputs_dir, "slides")
+    os.makedirs(slides_dir, exist_ok=True)
     os.makedirs(mockdata_dir, exist_ok=True)
 
-    # Write Confluence output
-    confluence_path = os.path.join(outputs_dir, f"confluence_{week_id}_{generated_timestamp}.md")
+    # Write Confluence output (overwrites = upsert simulation)
+    confluence_path = os.path.join(confluence_dir, f"week-{week_num}.md")
     with open(confluence_path, 'w') as f:
         f.write(confluence_content)
     print(f"  Wrote: {confluence_path}")
 
-    # Write Slide output (text)
-    slide_path = os.path.join(outputs_dir, f"slide_{week_id}_{generated_timestamp}.txt")
+    # Monthly index file (rollover on first Monday).
+    index_path = os.path.join(confluence_dir, "index.md")
+    index_header = f"# {month_name} Tech Updates\n\n"
+    index_entry = f"- {week_id} ({windows['last_week_start']} to {windows['last_week_end']}): week-{week_num}.md\n"
+    if is_first_monday or not os.path.exists(index_path):
+        with open(index_path, 'w') as f:
+            f.write(index_header)
+            f.write(index_entry)
+    else:
+        with open(index_path, 'r') as f:
+            existing = f.read()
+        if index_entry not in existing:
+            with open(index_path, 'a') as f:
+                f.write(index_entry)
+    print(f"  Wrote: {index_path}")
+
+    # Write Slide output (overwrites = upsert simulation)
+    slide_path = os.path.join(slides_dir, f"{week_id}.txt")
     with open(slide_path, 'w') as f:
         f.write(slide_content)
     print(f"  Wrote: {slide_path}")
 
     # PowerPoint output is not generated in the n8n workflow.
+
+    # Write a lightweight verification summary for quick checks.
+    verification_path = os.path.join(outputs_dir, f"verification_summary_{week_id}.md")
+    with open(verification_path, 'w') as f:
+        f.write("Weekly Deployment Update - Verification Summary\n")
+        f.write("=" * 52 + "\n\n")
+        f.write(f"Week ID: {week_id}\n")
+        f.write(f"Generated: {generated_timestamp}\n\n")
+        f.write("Date Windows\n")
+        f.write("-" * 12 + "\n")
+        f.write(f"Last Week: {windows['last_week_start']} to {windows['last_week_end']}\n")
+        f.write(f"Next 14 Days: {windows['next_14_start']} to {windows['next_14_end']}\n\n")
+        f.write(f"First Monday: {'Yes' if is_first_monday else 'No'}\n\n")
+        f.write("Bucket Counts\n")
+        f.write("-" * 13 + "\n")
+        f.write(f"FE Deployed: {len(buckets['fe_deployed'])}\n")
+        f.write(f"BE Deployed: {len(buckets['be_deployed'])}\n")
+        f.write(f"FE Upcoming: {len(buckets['fe_upcoming'])}\n")
+        f.write(f"BE Upcoming: {len(buckets['be_upcoming'])}\n")
+        f.write(f"Focus Items: {sum(len(g['tickets']) for g in buckets['focus_items'])}\n")
+        f.write(f"Risks/Blocks: {len(buckets['risks_blocks'])}\n")
+        f.write(f"Uncategorized: {len(buckets['uncategorized'])}\n\n")
+        f.write("Outputs\n")
+        f.write("-" * 7 + "\n")
+        f.write(f"Confluence: {confluence_path}\n")
+        f.write(f"Monthly Index: {index_path}\n")
+        f.write(f"Slides: {slide_path}\n")
+    print(f"  Wrote: {verification_path}")
+
+    # Append a run index row for quick audit history.
+    run_index_path = os.path.join(outputs_dir, "run_index.csv")
+    run_index_exists = os.path.exists(run_index_path)
+    with open(run_index_path, 'a', newline='') as f:
+        writer = csv.writer(f)
+        if not run_index_exists:
+            writer.writerow(["timestamp_id", "week_id", "confluence_path", "index_path", "slide_path"])
+        writer.writerow([timestamp_id, week_id, confluence_path, index_path, slide_path])
+    print(f"  Updated: {run_index_path}")
 
     # Write mock data
     mockdata_path = os.path.join(mockdata_dir, "mock_jira_tickets.json")
