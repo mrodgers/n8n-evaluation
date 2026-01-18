@@ -475,75 +475,80 @@ def generate_week_id():
 # Node 6: Confluence Formatter
 # ============================================================
 def format_confluence(buckets, windows, week_id, timestamp):
-    """Generate Markdown for Confluence."""
+    """Generate Markdown for Confluence (Appendix A format)."""
+
+    # Format title as "Week of January 18, 2026 Tech Update"
+    week_start = windows.get('last_week_start', '')
+    if week_start:
+        from datetime import datetime
+        dt = datetime.strptime(week_start, '%Y-%m-%d')
+        title_date = dt.strftime('%B %d, %Y')
+    else:
+        title_date = week_id
 
     def format_ticket(ticket, include_date=False):
         key = ticket.get("key", "")
         summary = ticket.get("summary", "")
+        status = ticket.get("status", "")
         url = f"https://jira.example.com/browse/{key}"
-        line = f"- [{key}]({url}): {summary}"
 
         if include_date:
             date = ticket.get("target_deploy_date") or ticket.get("deployed_date")
             if date:
-                line += f" *(Target: {date})*"
-            elif ticket.get("status") == "Ready for Deploy":
-                line += " *(Target: TBD)*"
-        return line
+                return f"- [{key}] {summary} (Status: {status}) — Target: {date} — Link: [{key}]({url})"
+            elif status == "Ready for Deploy":
+                return f"- [{key}] {summary} (Status: {status}) — Target: TBD — Link: [{key}]({url})"
+        return f"- [{key}] {summary} (Status: {status}) — Link: [{key}]({url})"
 
     def format_bucket(tickets, title, include_date=False):
         if not tickets:
-            return f"### {title}\n\n[None]\n"
-        lines = [f"### {title}\n"]
+            return f"**{title}:**\n* [None]\n"
+        lines = [f"**{title}:**"]
         for ticket in tickets:
             lines.append(format_ticket(ticket, include_date))
         return "\n".join(lines) + "\n"
 
     md_lines = [
-        f"# Weekly Deployment Update - {week_id}",
-        "",
-        f"**Report Period**: {windows.get('last_week_start', '')} to {windows.get('last_week_end', '')}",
-        f"**Generated**: {timestamp}",
+        f"# Week of {title_date} Tech Update",
         "",
         "---",
         "",
-        "## Deployed Last Week",
+        "## Released Last Week",
         ""
     ]
 
-    md_lines.append(format_bucket(buckets.get("fe_deployed", []), "Frontend"))
+    md_lines.append(format_bucket(buckets.get("fe_deployed", []), "FE Releases"))
     md_lines.append("")
-    md_lines.append(format_bucket(buckets.get("be_deployed", []), "Backend"))
+    md_lines.append(format_bucket(buckets.get("be_deployed", []), "BE Releases"))
     md_lines.append("")
 
     md_lines.extend([
         "---",
         "",
-        "## Expected Next 14 Days",
-        f"**Window**: {windows.get('next_14_start', '')} to {windows.get('next_14_end', '')}",
+        "## Upcoming Releases",
         ""
     ])
 
-    md_lines.append(format_bucket(buckets.get("fe_upcoming", []), "Frontend", include_date=True))
+    md_lines.append(format_bucket(buckets.get("fe_upcoming", []), "FE Releases", include_date=True))
     md_lines.append("")
-    md_lines.append(format_bucket(buckets.get("be_upcoming", []), "Backend", include_date=True))
+    md_lines.append(format_bucket(buckets.get("be_upcoming", []), "BE Releases", include_date=True))
     md_lines.append("")
 
     md_lines.extend([
         "---",
         "",
-        "## Team Focus Items",
+        "## Team Focus This Sprint",
         ""
     ])
 
     focus_items = buckets.get("focus_items", [])
     if not focus_items:
-        md_lines.append("[None]\n")
+        md_lines.append("* [None]\n")
     else:
         for group in focus_items:
             epic = group.get("epic", "Other")
             tickets = group.get("tickets", [])
-            md_lines.append(f"### {epic}\n")
+            md_lines.append(f"**{epic}**")
             for ticket in tickets:
                 md_lines.append(format_ticket(ticket))
             md_lines.append("")
@@ -551,7 +556,7 @@ def format_confluence(buckets, windows, week_id, timestamp):
     md_lines.extend([
         "---",
         "",
-        "## Risks & Blockers",
+        "## Risks / Blocks",
         ""
     ])
 
@@ -562,9 +567,10 @@ def format_confluence(buckets, windows, week_id, timestamp):
         for ticket in risks:
             key = ticket.get("key", "")
             summary = ticket.get("summary", "")
+            status = ticket.get("status", "")
             reason = ticket.get("blocked_reason", "No details provided")
             url = f"https://jira.example.com/browse/{key}"
-            md_lines.append(f"- **[{key}]({url})**: {summary}")
+            md_lines.append(f"- [{key}] {summary} (Status: {status}) — Link: [{key}]({url})")
             md_lines.append(f"  - *Reason*: {reason}")
         md_lines.append("")
 
@@ -580,122 +586,123 @@ def format_confluence(buckets, windows, week_id, timestamp):
             md_lines.append(format_ticket(ticket))
         md_lines.append("")
 
+    # Add last updated timestamp at bottom
+    md_lines.extend([
+        "",
+        "---",
+        "",
+        f"*Last updated: {timestamp}*"
+    ])
+
     return "\n".join(md_lines)
 
 # ============================================================
 # Node 7: Slide Formatter
 # ============================================================
 def format_slide(buckets, windows, week_id, timestamp):
-    """Generate two-column text for slides (aligned with NEW_WORKING workflow)."""
+    """Generate single slide text layout matching Appendix B."""
     newline = "\n"
+
+    # Format title date
+    week_start = windows.get('last_week_start', '')
+    if week_start:
+        from datetime import datetime
+        dt = datetime.strptime(week_start, '%Y-%m-%d')
+        title_date = dt.strftime('%B %d, %Y')
+    else:
+        title_date = week_id
 
     def format_ticket_simple(ticket):
         key = ticket.get("key", "")
         summary = ticket.get("summary", "")
-        return f"* {key}: {summary}"
+        return f"  * [{key}] {summary}"
 
     def format_ticket_with_date(ticket):
         key = ticket.get("key", "")
         summary = ticket.get("summary", "")
         date = ticket.get("target_deploy_date")
         if date:
-            return f"* {key}: {summary} [{date}]"
+            return f"  * [{key}] {summary} — {date}"
         if ticket.get("status") == "Ready for Deploy":
-            return f"* {key}: {summary} [TBD]"
-        return f"* {key}: {summary}"
+            return f"  * [{key}] {summary} — TBD"
+        return f"  * [{key}] {summary}"
 
     slide_lines = [
-        f"WEEKLY DEPLOYMENT UPDATE - {week_id}",
-        "=" * 50,
+        f"Week of {title_date} Tech Update",
+        "=" * 60,
         "",
-        "=" * 50,
-        "                    SLIDE 1: OVERVIEW",
-        "=" * 50,
-        "",
-        "+-----------------------------+-----------------------------+",
-        "|     DEPLOYED LAST WEEK      |    EXPECTED NEXT 14 DAYS    |",
-        "+-----------------------------+-----------------------------+",
+        "Released Last Week                    Upcoming Releases",
+        "-" * 30 + "      " + "-" * 24,
         "",
     ]
 
-    slide_lines.append("LEFT COLUMN (Deployed):")
-    slide_lines.append("-" * 30)
+    # Left column - Released
     fe_deployed = buckets.get("fe_deployed", [])
     be_deployed = buckets.get("be_deployed", [])
 
+    slide_lines.append("FE Release:")
     if fe_deployed:
-        slide_lines.append("FRONTEND:")
-        for t in fe_deployed[:5]:
+        for t in fe_deployed[:4]:
             slide_lines.append(format_ticket_simple(t))
-        slide_lines.append("")
-    if be_deployed:
-        slide_lines.append("BACKEND:")
-        for t in be_deployed[:5]:
-            slide_lines.append(format_ticket_simple(t))
-    if not fe_deployed and not be_deployed:
-        slide_lines.append("[None]")
+    else:
+        slide_lines.append("  * None")
 
     slide_lines.append("")
-    slide_lines.append("RIGHT COLUMN (Upcoming):")
-    slide_lines.append("-" * 30)
+    slide_lines.append("BE Release:")
+    if be_deployed:
+        for t in be_deployed[:4]:
+            slide_lines.append(format_ticket_simple(t))
+    else:
+        slide_lines.append("  * None")
 
+    slide_lines.append("")
+    slide_lines.append("-" * 60)
+    slide_lines.append("")
+
+    # Right column info (text representation)
     fe_upcoming = buckets.get("fe_upcoming", [])
     be_upcoming = buckets.get("be_upcoming", [])
 
+    slide_lines.append("FE Release — <Deploy Date>:")
     if fe_upcoming:
-        slide_lines.append("FRONTEND:")
-        for t in fe_upcoming[:5]:
+        for t in fe_upcoming[:4]:
             slide_lines.append(format_ticket_with_date(t))
-        slide_lines.append("")
-    if be_upcoming:
-        slide_lines.append("BACKEND:")
-        for t in be_upcoming[:5]:
-            slide_lines.append(format_ticket_with_date(t))
-    if not fe_upcoming and not be_upcoming:
-        slide_lines.append("[None]")
+    else:
+        slide_lines.append("  * None")
 
+    slide_lines.append("")
+    slide_lines.append("BE Release — <Deploy Date>:")
+    if be_upcoming:
+        for t in be_upcoming[:4]:
+            slide_lines.append(format_ticket_with_date(t))
+    else:
+        slide_lines.append("  * None")
+
+    # Bottom box - Focus only (per Appendix B)
     slide_lines.extend([
         "",
-        "=" * 50,
-        "            SLIDE 2: FOCUS & RISKS",
-        "=" * 50,
-        "",
-        "TEAM FOCUS ITEMS:",
-        "-" * 30,
+        "=" * 60,
+        "Focus",
+        "-" * 60,
     ])
 
     focus_items = buckets.get("focus_items", [])
     if not focus_items:
-        slide_lines.append("[None]")
+        slide_lines.append("  * [None]")
     else:
+        count = 0
         for group in focus_items:
-            epic = group.get("epic", "Other")
-            slide_lines.append(f"{newline}> {epic}:")
-            for ticket in group.get("tickets", [])[:3]:
+            for ticket in group.get("tickets", []):
+                if count >= 4:
+                    break
                 slide_lines.append(format_ticket_simple(ticket))
+                count += 1
+            if count >= 4:
+                break
 
     slide_lines.extend([
         "",
-        "RISKS & BLOCKERS:",
-        "-" * 30,
-    ])
-
-    risks = buckets.get("risks_blocks", [])
-    if not risks:
-        slide_lines.append("No known risks/blocks this week.")
-    else:
-        for ticket in risks:
-            key = ticket.get("key", "")
-            summary = ticket.get("summary", "")
-            reason = ticket.get("blocked_reason", "No details")
-            slide_lines.append(f"! {key}: {summary}")
-            slide_lines.append(f"  -> {reason}")
-
-    slide_lines.extend([
-        "",
-        "=" * 50,
-        f"Generated: {timestamp}",
-        "=" * 50,
+        "=" * 60,
     ])
 
     return newline.join(slide_lines)
@@ -1108,26 +1115,33 @@ const timestamp = input.generated_timestamp || '';
 const timestampId = input.generated_timestamp_id || '';
 const NL = '\n';
 
+// Format title date as "January 06, 2026"
+const weekStart = windows.last_week_start || '';
+let titleDate = weekId;
+if (weekStart) {
+  const dt = new Date(weekStart + 'T00:00:00Z');
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  titleDate = `${months[dt.getUTCMonth()]} ${String(dt.getUTCDate()).padStart(2,'0')}, ${dt.getUTCFullYear()}`;
+}
+
 const formatTicket = (ticket, includeDate = false) => {
   const key = ticket.key || '';
   const summary = ticket.summary || '';
+  const status = ticket.status || '';
   const url = `https://jira.example.com/browse/${key}`;
-  let line = `- [${key}](${url}): ${summary}`;
-
   if (includeDate) {
     const date = ticket.target_deploy_date || ticket.deployed_date;
-    if (date) line += ` *(Target: ${date})*`;
-    else if (ticket.status === 'Ready for Deploy') line += ' *(Target: TBD)*';
+    if (date) return `- [${key}] ${summary} (Status: ${status}) — Target: ${date} — Link: [${key}](${url})`;
+    if (status === 'Ready for Deploy') return `- [${key}] ${summary} (Status: ${status}) — Target: TBD — Link: [${key}](${url})`;
   }
-
-  return line;
+  return `- [${key}] ${summary} (Status: ${status}) — Link: [${key}](${url})`;
 };
 
 const formatBucket = (tickets, title, includeDate = false) => {
   if (!tickets || tickets.length === 0) {
-    return `### ${title}${NL}${NL}[None]${NL}`;
+    return `**${title}:**${NL}* [None]${NL}`;
   }
-  const lines = [`### ${title}${NL}`];
+  const lines = [`**${title}:**`];
   for (const ticket of tickets) {
     lines.push(formatTicket(ticket, includeDate));
   }
@@ -1135,46 +1149,39 @@ const formatBucket = (tickets, title, includeDate = false) => {
 };
 
 const mdLines = [
-  `# Weekly Deployment Update - ${weekId}`,
-  '',
-  `**Report Period**: ${windows.last_week_start || ''} to ${windows.last_week_end || ''}`,
-  `**Generated**: ${timestamp}`,
+  `# Week of ${titleDate} Tech Update`,
   '',
   '---',
   '',
-  '## Deployed Last Week',
+  '## Released Last Week',
   '',
 ];
 
-mdLines.push(formatBucket(buckets.fe_deployed || [], 'Frontend'));
+mdLines.push(formatBucket(buckets.fe_deployed || [], 'FE Releases'));
 mdLines.push('');
-mdLines.push(formatBucket(buckets.be_deployed || [], 'Backend'));
+mdLines.push(formatBucket(buckets.be_deployed || [], 'BE Releases'));
 mdLines.push('');
-
 mdLines.push('---');
 mdLines.push('');
-mdLines.push('## Expected Next 14 Days');
-mdLines.push(`**Window**: ${windows.next_14_start || ''} to ${windows.next_14_end || ''}`);
+mdLines.push('## Upcoming Releases');
 mdLines.push('');
-
-mdLines.push(formatBucket(buckets.fe_upcoming || [], 'Frontend', true));
+mdLines.push(formatBucket(buckets.fe_upcoming || [], 'FE Releases', true));
 mdLines.push('');
-mdLines.push(formatBucket(buckets.be_upcoming || [], 'Backend', true));
+mdLines.push(formatBucket(buckets.be_upcoming || [], 'BE Releases', true));
 mdLines.push('');
-
 mdLines.push('---');
 mdLines.push('');
-mdLines.push('## Team Focus Items');
+mdLines.push('## Team Focus This Sprint');
 mdLines.push('');
 
 const focusItems = buckets.focus_items || [];
 if (!focusItems.length) {
-  mdLines.push(`[None]${NL}`);
+  mdLines.push(`* [None]${NL}`);
 } else {
   for (const group of focusItems) {
     const epic = group.epic || 'Other';
     const tickets = group.tickets || [];
-    mdLines.push(`### ${epic}${NL}`);
+    mdLines.push(`**${epic}**`);
     for (const ticket of tickets) {
       mdLines.push(formatTicket(ticket));
     }
@@ -1184,7 +1191,7 @@ if (!focusItems.length) {
 
 mdLines.push('---');
 mdLines.push('');
-mdLines.push('## Risks & Blockers');
+mdLines.push('## Risks / Blocks');
 mdLines.push('');
 
 const risks = buckets.risks_blocks || [];
@@ -1194,9 +1201,10 @@ if (!risks.length) {
   for (const ticket of risks) {
     const key = ticket.key || '';
     const summary = ticket.summary || '';
+    const status = ticket.status || '';
     const reason = ticket.blocked_reason || 'No details provided';
     const url = `https://jira.example.com/browse/${key}`;
-    mdLines.push(`- **[${key}](${url})**: ${summary}`);
+    mdLines.push(`- [${key}] ${summary} (Status: ${status}) — Link: [${key}](${url})`);
     mdLines.push(`  - *Reason*: ${reason}`);
   }
   mdLines.push('');
@@ -1213,6 +1221,11 @@ if (uncategorized.length) {
   }
   mdLines.push('');
 }
+
+mdLines.push('');
+mdLines.push('---');
+mdLines.push('');
+mdLines.push(`*Last updated: ${timestamp}*`);
 
 const confluenceContent = mdLines.join(NL);
 
@@ -1238,111 +1251,101 @@ const weekId = input.week_identifier || '';
 const timestamp = input.generated_timestamp || '';
 const NL = '\n';
 
+// Format title date
+const weekStart = windows.last_week_start || '';
+let titleDate = weekId;
+if (weekStart) {
+  const dt = new Date(weekStart + 'T00:00:00Z');
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  titleDate = `${months[dt.getUTCMonth()]} ${String(dt.getUTCDate()).padStart(2,'0')}, ${dt.getUTCFullYear()}`;
+}
+
 const formatTicketSimple = (ticket) => {
   const key = ticket.key || '';
   const summary = ticket.summary || '';
-  return `* ${key}: ${summary}`;
+  return `  * [${key}] ${summary}`;
 };
 
 const formatTicketWithDate = (ticket) => {
   const key = ticket.key || '';
   const summary = ticket.summary || '';
   const date = ticket.target_deploy_date;
-  if (date) return `* ${key}: ${summary} [${date}]`;
-  if (ticket.status === 'Ready for Deploy') return `* ${key}: ${summary} [TBD]`;
-  return `* ${key}: ${summary}`;
+  if (date) return `  * [${key}] ${summary} — ${date}`;
+  if (ticket.status === 'Ready for Deploy') return `  * [${key}] ${summary} — TBD`;
+  return `  * [${key}] ${summary}`;
 };
 
 const slideLines = [
-  `WEEKLY DEPLOYMENT UPDATE - ${weekId}`,
-  '='.repeat(50),
+  `Week of ${titleDate} Tech Update`,
+  '='.repeat(60),
   '',
-  '='.repeat(50),
-  '                    SLIDE 1: OVERVIEW',
-  '='.repeat(50),
-  '',
-  '+-----------------------------+-----------------------------+',
-  '|     DEPLOYED LAST WEEK      |    EXPECTED NEXT 14 DAYS    |',
-  '+-----------------------------+-----------------------------+',
+  'Released Last Week                    Upcoming Releases',
+  '-'.repeat(30) + '      ' + '-'.repeat(24),
   '',
 ];
 
-slideLines.push('LEFT COLUMN (Deployed):');
-slideLines.push('-'.repeat(30));
 const feDeployed = buckets.fe_deployed || [];
 const beDeployed = buckets.be_deployed || [];
 
+slideLines.push('FE Release:');
 if (feDeployed.length) {
-  slideLines.push('FRONTEND:');
-  for (const t of feDeployed.slice(0, 5)) slideLines.push(formatTicketSimple(t));
-  slideLines.push('');
+  for (const t of feDeployed.slice(0, 4)) slideLines.push(formatTicketSimple(t));
+} else {
+  slideLines.push('  * None');
 }
-if (beDeployed.length) {
-  slideLines.push('BACKEND:');
-  for (const t of beDeployed.slice(0, 5)) slideLines.push(formatTicketSimple(t));
-}
-if (!feDeployed.length && !beDeployed.length) slideLines.push('[None]');
 
 slideLines.push('');
-slideLines.push('RIGHT COLUMN (Upcoming):');
-slideLines.push('-'.repeat(30));
+slideLines.push('BE Release:');
+if (beDeployed.length) {
+  for (const t of beDeployed.slice(0, 4)) slideLines.push(formatTicketSimple(t));
+} else {
+  slideLines.push('  * None');
+}
+
+slideLines.push('');
+slideLines.push('-'.repeat(60));
+slideLines.push('');
 
 const feUpcoming = buckets.fe_upcoming || [];
 const beUpcoming = buckets.be_upcoming || [];
 
+slideLines.push('FE Release — <Deploy Date>:');
 if (feUpcoming.length) {
-  slideLines.push('FRONTEND:');
-  for (const t of feUpcoming.slice(0, 5)) slideLines.push(formatTicketWithDate(t));
-  slideLines.push('');
+  for (const t of feUpcoming.slice(0, 4)) slideLines.push(formatTicketWithDate(t));
+} else {
+  slideLines.push('  * None');
 }
-if (beUpcoming.length) {
-  slideLines.push('BACKEND:');
-  for (const t of beUpcoming.slice(0, 5)) slideLines.push(formatTicketWithDate(t));
-}
-if (!feUpcoming.length && !beUpcoming.length) slideLines.push('[None]');
 
 slideLines.push('');
-slideLines.push('='.repeat(50));
-slideLines.push('            SLIDE 2: FOCUS & RISKS');
-slideLines.push('='.repeat(50));
+slideLines.push('BE Release — <Deploy Date>:');
+if (beUpcoming.length) {
+  for (const t of beUpcoming.slice(0, 4)) slideLines.push(formatTicketWithDate(t));
+} else {
+  slideLines.push('  * None');
+}
+
 slideLines.push('');
-slideLines.push('TEAM FOCUS ITEMS:');
-slideLines.push('-'.repeat(30));
+slideLines.push('='.repeat(60));
+slideLines.push('Focus');
+slideLines.push('-'.repeat(60));
 
 const focusItems = buckets.focus_items || [];
 if (!focusItems.length) {
-  slideLines.push('[None]');
+  slideLines.push('  * [None]');
 } else {
+  let count = 0;
   for (const group of focusItems) {
-    const epic = group.epic || 'Other';
-    slideLines.push(`${NL}> ${epic}:`);
-    for (const ticket of (group.tickets || []).slice(0, 3)) {
+    for (const ticket of (group.tickets || [])) {
+      if (count >= 4) break;
       slideLines.push(formatTicketSimple(ticket));
+      count++;
     }
+    if (count >= 4) break;
   }
 }
 
 slideLines.push('');
-slideLines.push('RISKS & BLOCKERS:');
-slideLines.push('-'.repeat(30));
-
-const risks = buckets.risks_blocks || [];
-if (!risks.length) {
-  slideLines.push('No known risks/blocks this week.');
-} else {
-  for (const ticket of risks) {
-    const key = ticket.key || '';
-    const summary = ticket.summary || '';
-    const reason = ticket.blocked_reason || 'No details';
-    slideLines.push(`! ${key}: ${summary}`);
-    slideLines.push(`  -> ${reason}`);
-  }
-}
-
-slideLines.push('');
-slideLines.push('='.repeat(50));
-slideLines.push(`Generated: ${timestamp}`);
-slideLines.push('='.repeat(50));
+slideLines.push('='.repeat(60));
 
 const slideContent = slideLines.join(NL);
 
