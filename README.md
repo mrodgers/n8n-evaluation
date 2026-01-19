@@ -76,7 +76,28 @@ cd /path/to/n8n-evaluation
 python3 test_workflow.py
 ```
 
-Outputs are written to `outputs/` and `mockdata/` directories. Re-running the workflow overwrites the same week’s files to simulate upsert behavior; the test script also writes `outputs/run_index.csv` and a `verification_summary_*.md` for quick checks.
+Outputs are written to `outputs/` and `mockdata/` directories. Re-running the workflow overwrites the same week's files to simulate upsert behavior; the test script also writes `outputs/run_index.csv` and a `verification_summary_*.md` for quick checks.
+
+### Running Unit Tests
+
+The project includes comprehensive unit tests for core business logic:
+
+```bash
+# Install test dependencies
+pip install pytest pytest-cov
+
+# Run all unit tests
+python3 -m pytest tests/ -v
+
+# Run with coverage report
+python3 -m pytest tests/ --cov=test_workflow --cov-report=term
+
+# Run with HTML coverage report
+python3 -m pytest tests/ --cov=test_workflow --cov-report=html
+open htmlcov/index.html  # View detailed coverage
+```
+
+**Test Coverage**: 41 unit tests covering core logic (date calculations, ticket classification, filtering). See [PHASE1_TEST_IMPLEMENTATION_SUMMARY.md](PHASE1_TEST_IMPLEMENTATION_SUMMARY.md) for details.
 
 ## Workflow Nodes
 

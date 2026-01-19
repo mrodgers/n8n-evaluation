@@ -7,6 +7,11 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+
 # OS
 .DS_Store
 archive/*
