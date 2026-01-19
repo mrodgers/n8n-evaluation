@@ -1405,7 +1405,7 @@ return [
         },
         {
             "parameters": {
-                "fileSelector": "/Users/matt/.n8n-files/mock_jira_tickets.json",
+                "fileSelector": "~/.n8n-files/mock_jira_tickets.json",
                 "options": {}
             },
             "type": "n8n-nodes-base.readWriteFile",
@@ -1544,7 +1544,7 @@ return [
         {
             "parameters": {
                 "operation": "write",
-                "fileName": "=/Users/matt/Git/n8n-evaluation/outputs/confluence/{{ $now.format('yyyy-MMMM') }}/week-{{ $json.week_identifier.split('-W')[1] }}.md",
+                "fileName": "=~/n8n-outputs/confluence/{{ $now.format('yyyy-MMMM') }}/week-{{ $json.week_identifier.split('-W')[1] }}.md",
                 "options": {}
             },
             "id": id_write_confluence,
@@ -1556,7 +1556,7 @@ return [
         {
             "parameters": {
                 "operation": "write",
-                "fileName": "=/Users/matt/Git/n8n-evaluation/outputs/slides/{{ $json.week_identifier }}.txt",
+                "fileName": "=~/n8n-outputs/slides/{{ $json.week_identifier }}.txt",
                 "options": {}
             },
             "id": id_write_slide,
