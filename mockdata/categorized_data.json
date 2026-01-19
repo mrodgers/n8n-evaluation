@@ -2,13 +2,33 @@
   "buckets": {
     "fe_deployed": [
       {
+        "key": "FE-101",
+        "summary": "Implement new dashboard layout",
+        "status": "Done",
+        "component": "Frontend",
+        "deployed_date": "2026-01-14",
+        "updated": "2026-01-14",
+        "epic": "Dashboard Redesign",
+        "fix_version": "2026.1"
+      },
+      {
         "key": "FE-102",
         "summary": "Add dark mode toggle",
         "status": "Done",
         "component": "Frontend",
-        "deployed_date": "2026-01-12",
-        "updated": "2026-01-12",
+        "deployed_date": "2026-01-13",
+        "updated": "2026-01-13",
         "epic": "UX Improvements",
+        "fix_version": "2026.1"
+      },
+      {
+        "key": "FE-103",
+        "summary": "Fix responsive navigation menu",
+        "status": "Done",
+        "component": "Frontend",
+        "deployed_date": "2026-01-15",
+        "updated": "2026-01-15",
+        "epic": "Mobile Support",
         "fix_version": "2026.1"
       },
       {
@@ -17,20 +37,50 @@
         "status": "Done",
         "component": "Frontend",
         "deployed_date": null,
-        "updated": "2026-01-11",
+        "updated": "2026-01-12",
         "epic": "UX Improvements",
+        "fix_version": "2026.1"
+      },
+      {
+        "key": "FE-112",
+        "summary": "Update privacy policy page",
+        "status": "Done",
+        "component": null,
+        "deployed_date": "2026-01-15",
+        "updated": "2026-01-15",
+        "epic": "Legal",
         "fix_version": "2026.1"
       }
     ],
     "be_deployed": [
       {
+        "key": "BE-201",
+        "summary": "Optimize database queries for reports",
+        "status": "Done",
+        "component": "Backend",
+        "deployed_date": "2026-01-14",
+        "updated": "2026-01-14",
+        "epic": "Performance",
+        "fix_version": "2026.1"
+      },
+      {
         "key": "BE-202",
         "summary": "Add rate limiting to API endpoints",
         "status": "Done",
         "component": "Backend",
-        "deployed_date": "2026-01-12",
-        "updated": "2026-01-12",
+        "deployed_date": "2026-01-13",
+        "updated": "2026-01-13",
         "epic": "Security",
+        "fix_version": "2026.1"
+      },
+      {
+        "key": "BE-203",
+        "summary": "Implement webhook retry logic",
+        "status": "Done",
+        "component": "Backend",
+        "deployed_date": "2026-01-16",
+        "updated": "2026-01-16",
+        "epic": "Integrations",
         "fix_version": "2026.1"
       }
     ],
@@ -40,8 +90,8 @@
         "summary": "Build user settings page",
         "status": "Ready for Deploy",
         "component": "Frontend",
-        "target_deploy_date": "2026-01-21",
-        "updated": "2026-01-17",
+        "target_deploy_date": "2026-01-22",
+        "updated": "2026-01-18",
         "epic": "User Management",
         "fix_version": "2026.2"
       },
@@ -50,8 +100,8 @@
         "summary": "Add export to PDF feature",
         "status": "In QA",
         "component": "Frontend",
-        "target_deploy_date": "2026-01-25",
-        "updated": "2026-01-16",
+        "target_deploy_date": "2026-01-26",
+        "updated": "2026-01-17",
         "epic": "Reports",
         "fix_version": "2026.2"
       },
@@ -61,7 +111,7 @@
         "status": "Ready for Deploy",
         "component": "Frontend",
         "target_deploy_date": null,
-        "updated": "2026-01-17",
+        "updated": "2026-01-18",
         "epic": "Notifications",
         "fix_version": "2026.2"
       },
@@ -70,8 +120,8 @@
         "summary": "Add keyboard shortcuts help modal",
         "status": "In QA",
         "component": "Frontend",
-        "target_deploy_date": "2026-01-28",
-        "updated": "2026-01-15",
+        "target_deploy_date": "2026-01-29",
+        "updated": "2026-01-16",
         "epic": "UX Improvements",
         "fix_version": "2026.2"
       },
@@ -80,8 +130,8 @@
         "summary": "Implement lazy loading for images",
         "status": "In QA",
         "component": "Frontend",
-        "target_deploy_date": "2026-01-24",
-        "updated": "2026-01-17",
+        "target_deploy_date": "2026-01-25",
+        "updated": "2026-01-18",
         "epic": "Performance",
         "fix_version": "2026.2"
       }
@@ -92,8 +142,8 @@
         "summary": "Add batch processing endpoint",
         "status": "Ready for Deploy",
         "component": "Backend",
-        "target_deploy_date": "2026-01-20",
-        "updated": "2026-01-17",
+        "target_deploy_date": "2026-01-21",
+        "updated": "2026-01-18",
         "epic": "API Enhancements",
         "fix_version": "2026.2"
       },
@@ -102,8 +152,8 @@
         "summary": "Implement audit logging",
         "status": "In QA",
         "component": "Backend",
-        "target_deploy_date": "2026-01-23",
-        "updated": "2026-01-16",
+        "target_deploy_date": "2026-01-24",
+        "updated": "2026-01-17",
         "epic": "Security",
         "fix_version": "2026.2"
       },
@@ -112,8 +162,8 @@
         "summary": "Add GraphQL support",
         "status": "Ready for Deploy",
         "component": "Backend",
-        "target_deploy_date": "2026-01-30",
-        "updated": "2026-01-14",
+        "target_deploy_date": "2026-01-31",
+        "updated": "2026-01-15",
         "epic": "API Enhancements",
         "fix_version": "2026.2"
       },
@@ -122,8 +172,8 @@
         "summary": "Add caching layer for API responses",
         "status": "In QA",
         "component": "Backend",
-        "target_deploy_date": "2026-01-26",
-        "updated": "2026-01-16",
+        "target_deploy_date": "2026-01-27",
+        "updated": "2026-01-17",
         "epic": "Performance",
         "fix_version": "2026.2"
       }
@@ -137,7 +187,7 @@
             "summary": "Redesign checkout flow",
             "status": "In Progress",
             "component": "Frontend",
-            "updated": "2026-01-17",
+            "updated": "2026-01-18",
             "epic": "Checkout Revamp",
             "fix_version": "2026.3"
           },
@@ -146,7 +196,7 @@
             "summary": "Migrate to new payment processor",
             "status": "In Progress",
             "component": "Backend",
-            "updated": "2026-01-16",
+            "updated": "2026-01-17",
             "epic": "Checkout Revamp",
             "fix_version": "2026.3"
           }
@@ -160,7 +210,7 @@
             "summary": "Build A/B testing framework",
             "status": "To Do",
             "component": "Frontend",
-            "updated": "2026-01-13",
+            "updated": "2026-01-14",
             "epic": "Analytics",
             "fix_version": "2026.3"
           },
@@ -169,7 +219,7 @@
             "summary": "Implement feature flags service",
             "status": "In Progress",
             "component": "Backend",
-            "updated": "2026-01-15",
+            "updated": "2026-01-16",
             "epic": "Analytics",
             "fix_version": "2026.3"
           },
@@ -178,7 +228,7 @@
             "summary": "Build analytics dashboard",
             "status": "In Progress",
             "component": null,
-            "updated": "2026-01-17",
+            "updated": "2026-01-18",
             "epic": "Analytics",
             "fix_version": "2026.3"
           }
@@ -192,7 +242,7 @@
             "summary": "Update deprecated dependencies",
             "status": "In Progress",
             "component": "Backend",
-            "updated": "2026-01-17",
+            "updated": "2026-01-18",
             "epic": null,
             "fix_version": "2026.2"
           }
@@ -205,7 +255,7 @@
         "summary": "Third-party widget integration failing",
         "status": "Blocked",
         "component": "Frontend",
-        "updated": "2026-01-16",
+        "updated": "2026-01-17",
         "epic": "Integrations",
         "blocked_reason": "Waiting for vendor API fix",
         "fix_version": "2026.2"
@@ -215,7 +265,7 @@
         "summary": "Database migration script",
         "status": "In Progress",
         "component": "Backend",
-        "updated": "2026-01-17",
+        "updated": "2026-01-18",
         "epic": "Infrastructure",
         "blocked_reason": "Requires DBA approval for production",
         "fix_version": "2026.2"
@@ -225,7 +275,7 @@
         "summary": "SSL certificate renewal",
         "status": "Blocked",
         "component": "Backend",
-        "updated": "2026-01-15",
+        "updated": "2026-01-16",
         "epic": "Security",
         "blocked_reason": "Pending security team review",
         "fix_version": "2026.2"
@@ -233,62 +283,12 @@
     ],
     "uncategorized": [
       {
-        "key": "FE-101",
-        "summary": "Implement new dashboard layout",
-        "status": "Done",
-        "component": "Frontend",
-        "deployed_date": "2026-01-13",
-        "updated": "2026-01-13",
-        "epic": "Dashboard Redesign",
-        "fix_version": "2026.1"
-      },
-      {
-        "key": "FE-103",
-        "summary": "Fix responsive navigation menu",
-        "status": "Done",
-        "component": "Frontend",
-        "deployed_date": "2026-01-14",
-        "updated": "2026-01-14",
-        "epic": "Mobile Support",
-        "fix_version": "2026.1"
-      },
-      {
-        "key": "BE-201",
-        "summary": "Optimize database queries for reports",
-        "status": "Done",
-        "component": "Backend",
-        "deployed_date": "2026-01-13",
-        "updated": "2026-01-13",
-        "epic": "Performance",
-        "fix_version": "2026.1"
-      },
-      {
-        "key": "BE-203",
-        "summary": "Implement webhook retry logic",
-        "status": "Done",
-        "component": "Backend",
-        "deployed_date": "2026-01-15",
-        "updated": "2026-01-15",
-        "epic": "Integrations",
-        "fix_version": "2026.1"
-      },
-      {
-        "key": "FE-112",
-        "summary": "Update privacy policy page",
-        "status": "Done",
-        "component": null,
-        "deployed_date": "2026-01-14",
-        "updated": "2026-01-14",
-        "epic": "Legal",
-        "fix_version": "2026.1"
-      },
-      {
         "key": "OPS-301",
         "summary": "Update CI/CD pipeline",
         "status": "Done",
         "component": null,
-        "deployed_date": "2026-01-13",
-        "updated": "2026-01-13",
+        "deployed_date": "2026-01-14",
+        "updated": "2026-01-14",
         "epic": "Infrastructure",
         "fix_version": "2026.1"
       },
@@ -297,22 +297,22 @@
         "summary": "Configure monitoring alerts",
         "status": "Ready for Deploy",
         "component": null,
-        "target_deploy_date": "2026-01-22",
-        "updated": "2026-01-16",
+        "target_deploy_date": "2026-01-23",
+        "updated": "2026-01-17",
         "epic": "Infrastructure",
         "fix_version": "2026.2"
       }
     ]
   },
   "windows": {
-    "last_week_start": "2026-01-06",
-    "last_week_end": "2026-01-12",
-    "next_14_start": "2026-01-18",
-    "next_14_end": "2026-02-01",
-    "current_date": "2026-01-18",
+    "last_week_start": "2026-01-12",
+    "last_week_end": "2026-01-18",
+    "next_14_start": "2026-01-19",
+    "next_14_end": "2026-02-02",
+    "current_date": "2026-01-19",
     "timezone": "UTC"
   },
-  "week_id": "2026-W03",
-  "timestamp": "2026-01-18 23:04:47 UTC",
-  "timestamp_id": "2026-01-18T23-04-47Z"
+  "week_id": "2026-W04",
+  "timestamp": "2026-01-19 18:49:13 UTC",
+  "timestamp_id": "2026-01-19T18-49-13Z"
 }
