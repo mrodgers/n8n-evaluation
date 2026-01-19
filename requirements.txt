@@ -6,3 +6,7 @@ python-pptx>=0.6.21
 # Testing
 pytest>=7.4.0
 pytest-cov>=4.1.0
+
+# Development Tools (optional - for code quality)
+# Install with: pip install -r requirements-dev.txt
+# Or: pip install -e ".[dev]" if using pyproject.toml
