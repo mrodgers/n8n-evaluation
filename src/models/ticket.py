@@ -4,8 +4,8 @@ This module defines the JiraTicket dataclass and related utilities for working
 with ticket data throughout the workflow.
 """
 
-from dataclasses import dataclass, field
-from typing import Any, Optional
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -48,13 +48,13 @@ class JiraTicket:
     key: str
     summary: str
     status: str
-    component: Optional[str] = None
-    deployed_date: Optional[str] = None
-    updated: Optional[str] = None
-    epic: Optional[str] = None
-    fix_version: Optional[str] = None
-    target_deploy_date: Optional[str] = None
-    blocked_reason: Optional[str] = None
+    component: str | None = None
+    deployed_date: str | None = None
+    updated: str | None = None
+    epic: str | None = None
+    fix_version: str | None = None
+    target_deploy_date: str | None = None
+    blocked_reason: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert ticket to dictionary format.
@@ -110,9 +110,7 @@ class JiraTicket:
             'FE-101'
         """
         # Extract only known fields
-        valid_fields = {
-            k: v for k, v in data.items() if k in cls.__dataclass_fields__
-        }
+        valid_fields = {k: v for k, v in data.items() if k in cls.__dataclass_fields__}
         return cls(**valid_fields)
 
     def is_blocked(self) -> bool:
@@ -142,7 +140,7 @@ class JiraTicket:
 
         return self.status == TicketStatus.BLOCKED.value or bool(self.blocked_reason)
 
-    def get_deploy_date(self) -> Optional[str]:
+    def get_deploy_date(self) -> str | None:
         """Get the deployment date with fallback to updated.
 
         Returns deployed_date if available, otherwise falls back to updated.
